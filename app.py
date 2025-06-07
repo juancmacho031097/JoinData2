@@ -23,7 +23,6 @@ STEPS = ["sabor", "tamano", "cantidad", "modalidad", "direccion"]
 SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
 CREDS = ServiceAccountCredentials.from_json_keyfile_dict(json.loads(creds_json), SCOPE)
-
 client = gspread.authorize(CREDS)
 sheet = client.open("Pedidos Ustariz Pizza").sheet1
 
@@ -86,14 +85,6 @@ Tu tarea es ayudar de forma natural y amigable a resolver cualquier inquietud, i
 
 📨 Mensaje del cliente:
 {mensaje}
-
-
-
-
-MENÚ: {MENU}
-Horario: Todos los días de 5:30pm a 10:30pm
-
-Mensaje del cliente: {mensaje}
 """
     try:
         response = openai.ChatCompletion.create(
@@ -134,27 +125,34 @@ def whatsapp():
         else:
             respuesta = responder_ia(msg, nombre)
             message.body(respuesta)
+
     elif step == 1:
         if msg in MENU:
             pedido["sabor"] = msg
             message.body("¿Qué tamaño deseas? (small, medium, large, x-large)")
             users[user]["step"] += 1
         else:
-            message.body("Sabor no válido. Prueba: pepperoni, hawaiana, bbq pollo o margarita.")
+            respuesta = responder_ia(msg, nombre)
+            message.body(respuesta)
+
     elif step == 2:
         if msg in MENU[pedido["sabor"]]:
             pedido["tamano"] = msg
             message.body("¿Cuántas unidades deseas?")
             users[user]["step"] += 1
         else:
-            message.body("Tamaño no válido. Prueba: small, medium, large, x-large")
+            respuesta = responder_ia(msg, nombre)
+            message.body(respuesta)
+
     elif step == 3:
         if msg.isdigit():
             pedido["cantidad"] = int(msg)
             message.body("¿Es para recoger o a domicilio?")
             users[user]["step"] += 1
         else:
-            message.body("Por favor, indica un número válido de unidades.")
+            respuesta = responder_ia(msg, nombre)
+            message.body(respuesta)
+
     elif step == 4:
         if msg in ["recoger", "a domicilio"]:
             pedido["modalidad"] = msg
@@ -170,7 +168,9 @@ def whatsapp():
                 message.body(resumen)
                 users[user] = {"step": 0, "pedido": {}}
         else:
-            message.body("Responde con 'recoger' o 'a domicilio'.")
+            respuesta = responder_ia(msg, nombre)
+            message.body(respuesta)
+
     elif step == 5:
         pedido["direccion"] = msg
         total = calcular_total(pedido["sabor"], pedido["tamano"], pedido["cantidad"])
