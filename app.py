@@ -7,7 +7,6 @@ from datetime import datetime
 import openai
 import json
 
-
 app = Flask(__name__)
 
 # =================== CONFIG ======================
@@ -51,11 +50,16 @@ def formatear_pedido(p):
 - Dirección: {p.get('direccion', 'N/A')}
 - Total: ${p['total']:,}"""
 
-def responder_ia(mensaje):
-    prompt = f"""Actúa como el asistente virtual de Ustariz Pizza. 
-Menú: {MENU}
+def responder_ia(mensaje, nombre):
+    prompt = f"""
+Eres el asistente virtual de Ustariz Pizza. Tu nombre es BotUsta. Estás hablando con un cliente llamado {nombre}.
+El cliente puede preguntar por el menú, los precios, el horario, o simplemente conversar contigo.
+Si no está haciendo un pedido estructurado, responde de forma cercana, natural y útil.
+
+MENÚ: {MENU}
 Horario: Todos los días de 5:30pm a 10:30pm
-Cliente: {mensaje}
+
+Mensaje del cliente: {mensaje}
 """
     try:
         response = openai.ChatCompletion.create(
@@ -65,7 +69,8 @@ Cliente: {mensaje}
         )
         return response.choices[0].message['content']
     except Exception as e:
-        return "Lo siento, hubo un error procesando tu solicitud."
+        print(f"Error en OpenAI: {e}")
+        return "Ups, parece que no pude entenderte bien. ¿Puedes repetirlo?"
 
 # =================== BOT ======================
 @app.route("/whatsapp", methods=['POST'])
@@ -73,6 +78,12 @@ def whatsapp():
     msg = request.form.get('Body').lower()
     user = request.form.get('From')
     nombre = request.form.get('ProfileName')
+
+    if msg == "cancelar":
+        users[user] = {"step": 0, "pedido": {}}
+        resp = MessagingResponse()
+        resp.message("❌ Pedido cancelado. Puedes empezar uno nuevo cuando desees.")
+        return str(resp)
 
     if user not in users:
         users[user] = {"step": 0, "pedido": {}}
@@ -87,7 +98,7 @@ def whatsapp():
             message.body("🍕 ¡Bienvenido a Ustariz Pizza! ¿Qué sabor deseas? (pepperoni, hawaiana, bbq pollo, margarita)")
             users[user]["step"] += 1
         else:
-            respuesta = responder_ia(msg)
+            respuesta = responder_ia(msg, nombre)
             message.body(respuesta)
     elif step == 1:
         if msg in MENU:
@@ -139,5 +150,3 @@ def whatsapp():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
-
-    ########hola
