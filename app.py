@@ -14,9 +14,9 @@ app = Flask(__name__)
 MENU = {}
 
 SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-#creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
-#CREDS = ServiceAccountCredentials.from_json_keyfile_dict(json.loads(creds_json), SCOPE)
-CREDS = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", SCOPE)
+creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
+CREDS = ServiceAccountCredentials.from_json_keyfile_dict(json.loads(creds_json), SCOPE)
+#CREDS = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", SCOPE)
 client = gspread.authorize(CREDS)
 sheet = client.open("Pedidos Ustariz Pizza").sheet1
 
