@@ -41,7 +41,7 @@ def cargar_menu_desde_pdf(ruta_pdf):
                 continue  
     MENU = nuevo_menu
 
-cargar_menu_desde_pdf("Catalogo_Flora.pdf")
+cargar_menu_desde_pdf("Catalogo_Flora_F.pdf")
 
 def calcular_total(producto, cantidad):
     return MENU[producto]["único"] * int(cantidad)
