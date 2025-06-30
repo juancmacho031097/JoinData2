@@ -67,6 +67,8 @@ def guardar_pedido(nombre, pedido):
     row = [now, nombre, pedido['producto'], pedido['cantidad'], pedido['modalidad'], pedido.get('direccion', '-'), pedido['total']]
     sheet.append_row(row)
 
+import requests
+
 def responder_ia_con_estado(nombre, historial, menu):
     prompt = f"""
 Eres BotUsta, el asistente virtual de Flora. Estás hablando con {nombre}.
@@ -98,13 +100,16 @@ Menú disponible:
         }
 
         data = {
-            "model": "openai/gpt-3.5-turbo",  # puedes cambiar el modelo
-            "messages": [{"role": "user", "content": prompt}],
+            "model": "openai/gpt-3.5-turbo",  # Puedes cambiar a otro modelo compatible con OpenRouter
+            "messages": [{"role": "user", "content": prompt}]
         }
 
+        print("🧠 Enviando solicitud a OpenRouter...")
         response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data)
         response.raise_for_status()
+
         content = response.json()["choices"][0]["message"]["content"]
+        print("🧾 Respuesta de la IA:", content)
 
         json_start = content.find('{')
         json_end = content.rfind('}') + 1
@@ -116,8 +121,6 @@ Menú disponible:
         traceback.print_exc()
         print("=========== FIN ERROR GPT =======")
         return "Ups, hubo un problema técnico. Estamos trabajando para solucionarlo. 🙏", {}
-
-
 
 
 # =================== BOT ======================
