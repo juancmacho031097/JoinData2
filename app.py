@@ -12,7 +12,12 @@ import traceback
 app = Flask(__name__)
 
 # =================== CONFIG ======================
-MENU = {}
+MENU = {
+    "ramos de rosas": {"único": 30000},
+    "girasoles": {"único": 25000},
+    "tulipanes": {"único": 35000}
+}
+
 
 SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
