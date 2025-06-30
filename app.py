@@ -8,6 +8,8 @@ import openai
 import json
 import pdfplumber
 import traceback
+import requests
+
 
 app = Flask(__name__)
 
@@ -88,22 +90,35 @@ Historial de mensajes:
 Menú disponible:
 {json.dumps(menu)}
 """
+
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.7
-        )
-        content = response.choices[0].message['content']
+        headers = {
+            "Authorization": f"Bearer {os.getenv('OPENAI_API_KEY')}",
+            "Content-Type": "application/json"
+        }
+
+        data = {
+            "model": "openai/gpt-3.5-turbo",  # puedes cambiar el modelo
+            "messages": [{"role": "user", "content": prompt}],
+        }
+
+        response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data)
+        response.raise_for_status()
+        content = response.json()["choices"][0]["message"]["content"]
+
         json_start = content.find('{')
         json_end = content.rfind('}') + 1
         pedido_json = json.loads(content[json_start:json_end])
         return content, pedido_json
+
     except Exception as e:
-        print("=========== ERROR GPT ===========")
+        print("=========== ERROR OPENROUTER GPT ===========")
         traceback.print_exc()
         print("=========== FIN ERROR GPT =======")
         return "Ups, hubo un problema técnico. Estamos trabajando para solucionarlo. 🙏", {}
+
+
+
 
 # =================== BOT ======================
 users = {}
