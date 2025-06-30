@@ -46,20 +46,23 @@ def cargar_menu_desde_pdf(ruta_pdf):
 cargar_menu_desde_pdf("Catalogo_Flora_F.pdf")
 
 # =================== IA ======================
-def responder_ia_con_estado(nombre, historial, menu):
-    prompt = f"""
+
+
+
+def responder_ia_con_estado(nombre, historial, menu, estado_actual):
+        prompt = f"""
     Eres FloraBot, un asistente de ventas de flores. Estás atendiendo a un cliente llamado {nombre}.
     Debes mantener una conversación natural y paso a paso para tomar un pedido.
 
-    Tienes que identificar estos 4 datos:
+    Debes identificar estos 4 datos:
     1. producto (nombre de flor en el menú)
     2. cantidad (cuántos quiere)
     3. modalidad (recoger o domicilio)
     4. dirección (solo si es domicilio)
 
-    Si el cliente pregunta por el precio de un producto, respóndelo con base en el menú que te paso abajo.
+    Si el cliente pregunta por el precio de un producto, respóndelo con base en el menú.
 
-    Cuando recopiles todos los datos, responde así:
+    Cuando tengas todos los datos, responde así:
 
     🧾 *Pedido confirmado*:
     - Producto: girasoles
@@ -77,12 +80,56 @@ def responder_ia_con_estado(nombre, historial, menu):
     "respuesta": "texto conversacional para mostrar al cliente"
     }}
 
+    Estado actual del pedido:
+    {json.dumps(estado_actual)}
+
     Historial del cliente:
-    {json.dumps(historial[-5:])}
+    {json.dumps(historial[-8:])}
 
     Menú disponible:
     {json.dumps(menu)}
     """
+
+        try:
+            headers = {
+                "Authorization": f"Bearer {os.getenv('OPENAI_API_KEY')}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://ustariz-pizza-bot.onrender.com",
+                "X-Title": "Bot Flora IA"
+            }
+
+            data = {
+                "model": "google/gemma-3-4b-it:free",
+                "messages": [{"role": "user", "content": prompt}]
+            }
+
+            response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data)
+            if response.status_code != 200:
+                print(f"❌ Error {response.status_code}: {response.text}")
+                return "No fue posible procesar tu mensaje. Intenta más tarde."
+
+            content = response.json()["choices"][0]["message"]["content"]
+
+            json_start = content.find('{')
+            json_end = content.rfind('}') + 1
+            pedido_json = {}
+            if json_start != -1 and json_end != -1:
+                try:
+                    pedido_json = json.loads(content[json_start:json_end])
+                except:
+                    pass
+
+            # Actualiza el estado del usuario
+            for campo in ["producto", "cantidad", "modalidad", "direccion"]:
+                if campo in pedido_json and pedido_json[campo]:
+                    estado_actual[campo] = pedido_json[campo]
+
+            return pedido_json.get("respuesta", content)
+
+        except Exception:
+            print("=========== ERROR GPT ===========")
+            traceback.print_exc()
+            return "Ups, hubo un problema técnico. Estamos trabajando para solucionarlo. 🙏"
 
 
 # =================== BOT ======================
@@ -102,7 +149,16 @@ def whatsapp():
         return str(resp)
 
     if user not in users:
-        users[user] = {"historial": []}
+        users[user] = {
+            "historial": [],
+            "estado_pedido": {
+                "producto": None,
+                "cantidad": None,
+                "modalidad": None,
+                "direccion": None
+            }
+        }
+
 
     users[user]["historial"].append(msg.lower())
 
@@ -110,7 +166,8 @@ def whatsapp():
         message.body("No hay productos disponibles. Intenta más tarde.")
         return str(resp)
 
-    respuesta = responder_ia_con_estado(nombre, users[user]["historial"], MENU)
+    respuesta = responder_ia_con_estado(nombre,   users[user]["historial"],  MENU,  users[user]["estado_pedido"])
+
     message.body(respuesta)
     return str(resp)
 
