@@ -96,20 +96,25 @@ Menú disponible:
     try:
         headers = {
             "Authorization": f"Bearer {os.getenv('OPENAI_API_KEY')}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://ustariz-pizza-bot.onrender.com",  # Requerido por OpenRouter
+            "X-Title": "Bot Ustariz Pizza"
         }
 
         data = {
-            "model": "openai/gpt-3.5-turbo",  # Puedes cambiar a otro modelo compatible con OpenRouter
+            "model": "openai/gpt-3.5-turbo",  # Puedes probar con otro modelo si este falla
             "messages": [{"role": "user", "content": prompt}]
         }
 
         print("🧠 Enviando solicitud a OpenRouter...")
         response = requests.post("https://openrouter.ai/api/chat/completions", headers=headers, json=data)
-        response.raise_for_status()
 
+        if response.status_code != 200:
+            print(f"❌ Error {response.status_code}: {response.text}")
+            return "No fue posible procesar tu pedido por ahora. Inténtalo más tarde.", {}
+
+        print("🧾 Respuesta cruda:", response.text)
         content = response.json()["choices"][0]["message"]["content"]
-        print("🧾 Respuesta de la IA:", content)
 
         json_start = content.find('{')
         json_end = content.rfind('}') + 1
@@ -121,7 +126,6 @@ Menú disponible:
         traceback.print_exc()
         print("=========== FIN ERROR GPT =======")
         return "Ups, hubo un problema técnico. Estamos trabajando para solucionarlo. 🙏", {}
-
 
 # =================== BOT ======================
 users = {}
