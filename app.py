@@ -18,7 +18,6 @@ MENU = {
     "tulipanes": {"único": 35000}
 }
 
-
 SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
 CREDS = ServiceAccountCredentials.from_json_keyfile_dict(json.loads(creds_json), SCOPE)
@@ -30,23 +29,31 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 # =================== FUNCIONES ======================
 def cargar_menu_desde_pdf(ruta_pdf):
     global MENU
-    with pdfplumber.open(ruta_pdf) as pdf:
-        texto = "\n".join(page.extract_text() for page in pdf.pages if page.extract_text())
+    try:
+        with pdfplumber.open(ruta_pdf) as pdf:
+            texto = "\n".join(page.extract_text() for page in pdf.pages if page.extract_text())
 
-    nuevo_menu = {}
-    lineas = texto.lower().split("\n")
-    for linea in lineas:
-        if "$" in linea:
-            try:
-                partes = linea.strip().split("$")
-                nombre = partes[0].strip()
-                precio = int(partes[1].replace(",", "").strip())
-                nuevo_menu[nombre] = {"único": precio}
-            except:
-                continue
-    MENU = nuevo_menu
-    print("✅ MENÚ CARGADO:")
-    print(json.dumps(MENU, indent=2, ensure_ascii=False))
+        nuevo_menu = {}
+        lineas = texto.lower().split("\n")
+        for linea in lineas:
+            if "$" in linea:
+                try:
+                    partes = linea.strip().split("$")
+                    nombre = partes[0].strip()
+                    precio = int(partes[1].replace(",", "").strip())
+                    nuevo_menu[nombre] = {"único": precio}
+                except:
+                    continue
+
+        if nuevo_menu:
+            MENU = nuevo_menu
+            print("✅ MENÚ CARGADO DESDE PDF:")
+            print(json.dumps(MENU, indent=2, ensure_ascii=False))
+        else:
+            print("⚠️ Menú en blanco desde PDF. Usando valores por defecto.")
+    except Exception as e:
+        print("❌ Error al cargar menú desde PDF. Usando valores por defecto.")
+        traceback.print_exc()
 
 cargar_menu_desde_pdf("Catalogo_Flora_F.pdf")
 
@@ -96,7 +103,7 @@ Menú disponible:
         print("=========== ERROR GPT ===========")
         traceback.print_exc()
         print("=========== FIN ERROR GPT =======")
-        return "Ups, tuve un problema procesando tu pedido. ¿Podrías repetirlo?", {}
+        return "Ups, hubo un problema técnico. Estamos trabajando para solucionarlo. 🙏", {}
 
 # =================== BOT ======================
 users = {}
@@ -112,13 +119,22 @@ def whatsapp():
     print("From:", user)
     print("ProfileName:", nombre)
 
+    resp = MessagingResponse()
+    message = resp.message()
+
+    if not msg or not user:
+        message.body("No pude leer tu mensaje. ¿Puedes intentarlo de nuevo?")
+        return str(resp)
+
     if user not in users:
         users[user] = {"historial": []}
 
     users[user]["historial"].append(msg.lower())
 
-    resp = MessagingResponse()
-    message = resp.message()
+    if not MENU:
+        print("❌ ERROR: El menú está vacío.")
+        message.body("En este momento no hay productos disponibles. Intenta más tarde.")
+        return str(resp)
 
     respuesta, pedido = responder_ia_con_estado(nombre, users[user]["historial"], MENU)
     message.body(respuesta)
