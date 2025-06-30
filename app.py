@@ -47,51 +47,43 @@ cargar_menu_desde_pdf("Catalogo_Flora_F.pdf")
 
 # =================== IA ======================
 def responder_ia_con_estado(nombre, historial, menu):
-    prompt = f"""Tu tarea es conversar de forma fluida y detectar automáticamente si el cliente ya indicó el producto, cantidad, modalidad (recoger o a domicilio) y dirección. A medida que recopilas estos datos, debes confirmar y preguntar lo siguiente que falta.
+    prompt = f"""
+    Eres FloraBot, un asistente de ventas de flores. Estás atendiendo a un cliente llamado {nombre}.
+    Debes mantener una conversación natural y paso a paso para tomar un pedido.
 
+    Tienes que identificar estos 4 datos:
+    1. producto (nombre de flor en el menú)
+    2. cantidad (cuántos quiere)
+    3. modalidad (recoger o domicilio)
+    4. dirección (solo si es domicilio)
 
-Historial:
-{json.dumps(historial[-5:])}
+    Si el cliente pregunta por el precio de un producto, respóndelo con base en el menú que te paso abajo.
 
-Menú:
-{json.dumps(menu)}
-"""
+    Cuando recopiles todos los datos, responde así:
 
-    try:
-        headers = {
-            "Authorization": f"Bearer {os.getenv('OPENAI_API_KEY')}",
-            "Content-Type": "application/json",
-            "HTTP-Referer": "https://ustariz-pizza-bot.onrender.com",
-            "X-Title": "Bot Flora IA"
-        }
+    🧾 *Pedido confirmado*:
+    - Producto: girasoles
+    - Cantidad: 2
+    - Modalidad: Domicilio
+    - Dirección: Calle 118 #43-46
+    - Total: $50,000
 
-        data = {
-            "model": "google/gemma-3-4b-it:free",
-            "messages": [{"role": "user", "content": prompt}]
-        }
+    Devuelve un JSON así:
+    {{
+    "producto": "...",
+    "cantidad": "...",
+    "modalidad": "...",
+    "direccion": "...",
+    "respuesta": "texto conversacional para mostrar al cliente"
+    }}
 
-        response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data)
-        if response.status_code != 200:
-            print(f"❌ Error {response.status_code}: {response.text}")
-            return "No fue posible procesar tu mensaje. Intenta más tarde."
+    Historial del cliente:
+    {json.dumps(historial[-5:])}
 
-        content = response.json()["choices"][0]["message"]["content"]
+    Menú disponible:
+    {json.dumps(menu)}
+    """
 
-        json_start = content.find('{')
-        json_end = content.rfind('}') + 1
-        pedido_json = {}
-        if json_start != -1 and json_end != -1:
-            try:
-                pedido_json = json.loads(content[json_start:json_end])
-            except:
-                pass
-
-        return pedido_json.get("respuesta", content)
-
-    except Exception:
-        print("=========== ERROR GPT ===========")
-        traceback.print_exc()
-        return "Ups, hubo un problema técnico. Estamos trabajando para solucionarlo. 🙏"
 
 # =================== BOT ======================
 users = {}
