@@ -105,7 +105,7 @@ Menú disponible:
         }
 
         print("🧠 Enviando solicitud a OpenRouter...")
-        response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data)
+        response = requests.post("https://openrouter.ai/api/chat/completions", headers=headers, json=data)
         response.raise_for_status()
 
         content = response.json()["choices"][0]["message"]["content"]
