@@ -176,9 +176,15 @@ def whatsapp():
     message.body(respuesta)
 
     if all(k in pedido for k in ["producto", "cantidad", "modalidad", "direccion"]):
-        pedido["total"] = calcular_total(pedido["producto"], pedido["cantidad"])
-        guardar_pedido(nombre, pedido)
-        users[user] = {"historial": []}
+        producto = pedido.get("producto")
+        if producto in MENU:
+            pedido["total"] = calcular_total(producto, pedido["cantidad"])
+            guardar_pedido(nombre, pedido)
+            users[user] = {"historial": []}
+        else:
+            print(f"❌ Producto no válido o no está en el menú: {producto}")
+            message.body(f"El producto '{producto}' no está disponible. Por favor revisa el menú y vuelve a intentarlo.")
+
 
     return str(resp)
 
