@@ -47,9 +47,8 @@ cargar_menu_desde_pdf("Catalogo_Flora_F.pdf")
 
 # =================== IA ======================
 def responder_ia_con_estado(nombre, historial, menu):
-    prompt = f"""
-Eres BotUsta, el asistente virtual de Flora. Estás hablando con {nombre}.
-Tu tarea es conversar de forma fluida y detectar automáticamente si el cliente ya indicó el producto, cantidad, modalidad (recoger o a domicilio) y dirección. A medida que recopilas estos datos, debes confirmar y preguntar lo siguiente que falta.
+    prompt = f"""Tu tarea es conversar de forma fluida y detectar automáticamente si el cliente ya indicó el producto, cantidad, modalidad (recoger o a domicilio) y dirección. A medida que recopilas estos datos, debes confirmar y preguntar lo siguiente que falta.
+
 
 Historial:
 {json.dumps(historial[-5:])}
