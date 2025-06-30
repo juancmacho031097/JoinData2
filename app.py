@@ -7,6 +7,7 @@ from datetime import datetime
 import openai
 import json
 import pdfplumber
+import traceback
 
 app = Flask(__name__)
 
@@ -16,7 +17,6 @@ MENU = {}
 SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
 CREDS = ServiceAccountCredentials.from_json_keyfile_dict(json.loads(creds_json), SCOPE)
-#CREDS = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", SCOPE)
 client = gspread.authorize(CREDS)
 sheet = client.open("Pedidos Ustariz Pizza").sheet1
 
@@ -38,8 +38,10 @@ def cargar_menu_desde_pdf(ruta_pdf):
                 precio = int(partes[1].replace(",", "").strip())
                 nuevo_menu[nombre] = {"único": precio}
             except:
-                continue  
+                continue
     MENU = nuevo_menu
+    print("✅ MENÚ CARGADO:")
+    print(json.dumps(MENU, indent=2, ensure_ascii=False))
 
 cargar_menu_desde_pdf("Catalogo_Flora_F.pdf")
 
@@ -86,7 +88,9 @@ Menú disponible:
         pedido_json = json.loads(content[json_start:json_end])
         return content, pedido_json
     except Exception as e:
-        print(f"Error IA: {e}")
+        print("=========== ERROR GPT ===========")
+        traceback.print_exc()
+        print("=========== FIN ERROR GPT =======")
         return "Ups, tuve un problema procesando tu pedido. ¿Podrías repetirlo?", {}
 
 # =================== BOT ======================
@@ -94,14 +98,19 @@ users = {}
 
 @app.route("/whatsapp", methods=['POST'])
 def whatsapp():
-    msg = request.form.get('Body').lower()
+    print("📩 Mensaje recibido de Twilio")
+    msg = request.form.get('Body')
     user = request.form.get('From')
     nombre = request.form.get('ProfileName')
+
+    print("Body:", msg)
+    print("From:", user)
+    print("ProfileName:", nombre)
 
     if user not in users:
         users[user] = {"historial": []}
 
-    users[user]["historial"].append(msg)
+    users[user]["historial"].append(msg.lower())
 
     resp = MessagingResponse()
     message = resp.message()
@@ -119,7 +128,6 @@ def whatsapp():
 @app.route("/", methods=['GET'])
 def home():
     return "Bot Ustariz Pizza está activo ✅"
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
