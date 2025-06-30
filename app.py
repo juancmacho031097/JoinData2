@@ -23,7 +23,7 @@ MENU = {
 
 SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 SHEET_ACTIVA = True
-
+sheet = None  # Inicializa como None
 try:
     creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
     CREDS = ServiceAccountCredentials.from_json_keyfile_dict(json.loads(creds_json), SCOPE)
@@ -72,12 +72,13 @@ def calcular_total(producto, cantidad):
     return MENU[producto]["único"] * int(cantidad)
 
 def guardar_pedido(nombre, pedido):
-    if not SHEET_ACTIVA:
-        print("📄 Pedido no guardado: sin conexión a Google Sheets.")
+    if sheet is None:
+        print("❌ Pedido no guardado: no hay conexión con Google Sheets.")
         return
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
     row = [now, nombre, pedido['producto'], pedido['cantidad'], pedido['modalidad'], pedido.get('direccion', '-'), pedido['total']]
     sheet.append_row(row)
+
 
 
 import requests
