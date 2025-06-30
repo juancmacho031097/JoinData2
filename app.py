@@ -173,7 +173,10 @@ def whatsapp():
         return str(resp)
 
     respuesta, pedido = responder_ia_con_estado(nombre, users[user]["historial"], MENU)
-    message.body(respuesta)
+    # Si contiene 'respuesta' en el JSON, úsala como el mensaje principal
+    mensaje_ia = pedido.get("respuesta", respuesta)
+    message.body(mensaje_ia)
+
 
     if all(k in pedido for k in ["producto", "cantidad", "modalidad", "direccion"]):
         producto = pedido.get("producto")
