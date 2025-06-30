@@ -1,15 +1,10 @@
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
 import os
-from datetime import datetime
-import openai
 import json
 import pdfplumber
 import traceback
 import requests
-
 
 app = Flask(__name__)
 
@@ -21,23 +16,6 @@ MENU = {
     "tulipanes": {"único": 35000}
 }
 
-SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-SHEET_ACTIVA = True
-sheet = None  # Inicializa como None
-try:
-    creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
-    CREDS = ServiceAccountCredentials.from_json_keyfile_dict(json.loads(creds_json), SCOPE)
-    client = gspread.authorize(CREDS)
-    sheet = client.open("Pedidos Ustariz Pizza").sheet1
-    print("✅ Conexión a Google Sheets establecida.")
-except Exception as e:
-    SHEET_ACTIVA = False
-    sheet = None
-    print("❌ No se pudo autenticar con Google Sheets. El bot seguirá funcionando sin guardar pedidos.")
-    traceback.print_exc()
-
-
-# =================== FUNCIONES ======================
 def cargar_menu_desde_pdf(ruta_pdf):
     global MENU
     try:
@@ -45,8 +23,7 @@ def cargar_menu_desde_pdf(ruta_pdf):
             texto = "\n".join(page.extract_text() for page in pdf.pages if page.extract_text())
 
         nuevo_menu = {}
-        lineas = texto.lower().split("\n")
-        for linea in lineas:
+        for linea in texto.lower().split("\n"):
             if "$" in linea:
                 try:
                     partes = linea.strip().split("$")
@@ -61,49 +38,23 @@ def cargar_menu_desde_pdf(ruta_pdf):
             print("✅ MENÚ CARGADO DESDE PDF:")
             print(json.dumps(MENU, indent=2, ensure_ascii=False))
         else:
-            print("⚠️ Menú en blanco desde PDF. Usando valores por defecto.")
-    except Exception as e:
-        print("❌ Error al cargar menú desde PDF. Usando valores por defecto.")
+            print("⚠️ Menú vacío. Usando valores por defecto.")
+    except Exception:
+        print("❌ Error cargando el menú desde PDF. Usando menú por defecto.")
         traceback.print_exc()
 
 cargar_menu_desde_pdf("Catalogo_Flora_F.pdf")
 
-def calcular_total(producto, cantidad):
-    return MENU[producto]["único"] * int(cantidad)
-
-def guardar_pedido(nombre, pedido):
-    if sheet is None:
-        print("❌ Pedido no guardado: no hay conexión con Google Sheets.")
-        return
-    now = datetime.now().strftime("%Y-%m-%d %H:%M")
-    row = [now, nombre, pedido['producto'], pedido['cantidad'], pedido['modalidad'], pedido.get('direccion', '-'), pedido['total']]
-    sheet.append_row(row)
-
-
-
-import requests
-
+# =================== IA ======================
 def responder_ia_con_estado(nombre, historial, menu):
     prompt = f"""
 Eres BotUsta, el asistente virtual de Flora. Estás hablando con {nombre}.
 Tu tarea es conversar de forma fluida y detectar automáticamente si el cliente ya indicó el producto, cantidad, modalidad (recoger o a domicilio) y dirección. A medida que recopilas estos datos, debes confirmar y preguntar lo siguiente que falta.
 
-Ejemplo:
-Cliente: "Hola, quiero 2 ramos de rosas"
-Respuesta: "¡Perfecto! 🌹 2 Ramos de Rosas. ¿Es para recoger o a domicilio?"
-
-Si el pedido está completo, genera un resumen como este:
-🧾 Pedido confirmado:
-- 2 Ramos de Rosas
-- Modalidad: A domicilio
-- Dirección: Calle 123
-- Total: $60,000
-
-Devuelve un JSON con los campos recolectados y la respuesta conversacional.
-
-Historial de mensajes:
+Historial:
 {json.dumps(historial[-5:])}
-Menú disponible:
+
+Menú:
 {json.dumps(menu)}
 """
 
@@ -111,49 +62,46 @@ Menú disponible:
         headers = {
             "Authorization": f"Bearer {os.getenv('OPENAI_API_KEY')}",
             "Content-Type": "application/json",
-            "HTTP-Referer": "https://ustariz-pizza-bot.onrender.com",  # Requerido por OpenRouter
-            "X-Title": "Bot Ustariz Pizza"
+            "HTTP-Referer": "https://ustariz-pizza-bot.onrender.com",
+            "X-Title": "Bot Flora IA"
         }
 
         data = {
-            "model": "google/gemma-3-4b-it:free",  # Puedes probar con otro modelo si este falla
+            "model": "google/gemma-3-4b-it:free",
             "messages": [{"role": "user", "content": prompt}]
         }
 
-        print("🧠 Enviando solicitud a OpenRouter...")
         response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data)
-
         if response.status_code != 200:
             print(f"❌ Error {response.status_code}: {response.text}")
-            return "No fue posible procesar tu pedido por ahora. Inténtalo más tarde.", {}
+            return "No fue posible procesar tu mensaje. Intenta más tarde."
 
-        print("🧾 Respuesta cruda:", response.text)
         content = response.json()["choices"][0]["message"]["content"]
 
         json_start = content.find('{')
         json_end = content.rfind('}') + 1
-        pedido_json = json.loads(content[json_start:json_end])
-        return content, pedido_json
+        pedido_json = {}
+        if json_start != -1 and json_end != -1:
+            try:
+                pedido_json = json.loads(content[json_start:json_end])
+            except:
+                pass
 
-    except Exception as e:
-        print("=========== ERROR OPENROUTER GPT ===========")
+        return pedido_json.get("respuesta", content)
+
+    except Exception:
+        print("=========== ERROR GPT ===========")
         traceback.print_exc()
-        print("=========== FIN ERROR GPT =======")
-        return "Ups, hubo un problema técnico. Estamos trabajando para solucionarlo. 🙏", {}
+        return "Ups, hubo un problema técnico. Estamos trabajando para solucionarlo. 🙏"
 
 # =================== BOT ======================
 users = {}
 
 @app.route("/whatsapp", methods=['POST'])
 def whatsapp():
-    print("📩 Mensaje recibido de Twilio")
     msg = request.form.get('Body')
     user = request.form.get('From')
     nombre = request.form.get('ProfileName')
-
-    print("Body:", msg)
-    print("From:", user)
-    print("ProfileName:", nombre)
 
     resp = MessagingResponse()
     message = resp.message()
@@ -168,32 +116,16 @@ def whatsapp():
     users[user]["historial"].append(msg.lower())
 
     if not MENU:
-        print("❌ ERROR: El menú está vacío.")
-        message.body("En este momento no hay productos disponibles. Intenta más tarde.")
+        message.body("No hay productos disponibles. Intenta más tarde.")
         return str(resp)
 
-    respuesta, pedido = responder_ia_con_estado(nombre, users[user]["historial"], MENU)
-    # Si contiene 'respuesta' en el JSON, úsala como el mensaje principal
-    mensaje_ia = pedido.get("respuesta", respuesta)
-    message.body(mensaje_ia)
-
-
-    if all(k in pedido for k in ["producto", "cantidad", "modalidad", "direccion"]):
-        producto = pedido.get("producto")
-        if producto in MENU:
-            pedido["total"] = calcular_total(producto, pedido["cantidad"])
-            guardar_pedido(nombre, pedido)
-            users[user] = {"historial": []}
-        else:
-            print(f"❌ Producto no válido o no está en el menú: {producto}")
-            message.body(f"El producto '{producto}' no está disponible. Por favor revisa el menú y vuelve a intentarlo.")
-
-
+    respuesta = responder_ia_con_estado(nombre, users[user]["historial"], MENU)
+    message.body(respuesta)
     return str(resp)
 
 @app.route("/", methods=['GET'])
 def home():
-    return "Bot Ustariz Pizza está activo ✅"
+    return "Bot Flora IA activo ✅"
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
