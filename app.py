@@ -1,184 +1,107 @@
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 import os
+from datetime import datetime
+import openai
 import json
-import pdfplumber
-import traceback
-import requests
 
 app = Flask(__name__)
 
 # =================== CONFIG ======================
-
 MENU = {
-    "ramos de rosas": {"único": 30000},
-    "girasoles": {"único": 25000},
-    "tulipanes": {"único": 35000}
+    "pepperoni": {"small": 20000, "medium": 25000, "large": 30000, "x-large": 35000},
+    "hawaiana": {"small": 20000, "medium": 25000, "large": 30000, "x-large": 35000},
+    "bbq pollo": {"small": 22000, "medium": 27000, "large": 32000, "x-large": 37000},
+    "margarita": {"small": 18000, "medium": 23000, "large": 28000, "x-large": 33000}
 }
 
-def cargar_menu_desde_pdf(ruta_pdf):
-    global MENU
-    try:
-        with pdfplumber.open(ruta_pdf) as pdf:
-            texto = "\n".join(page.extract_text() for page in pdf.pages if page.extract_text())
+SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
+CREDS = ServiceAccountCredentials.from_json_keyfile_dict(json.loads(creds_json), SCOPE)
+#CREDS = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", SCOPE)
 
-        nuevo_menu = {}
-        for linea in texto.lower().split("\n"):
-            if "$" in linea:
-                try:
-                    partes = linea.strip().split("$")
-                    nombre = partes[0].strip()
-                    precio = int(partes[1].replace(",", "").strip())
-                    nuevo_menu[nombre] = {"único": precio}
-                except:
-                    continue
+client = gspread.authorize(CREDS)
+sheet = client.open("Pedidos Ustariz Pizza").sheet1
 
-        if nuevo_menu:
-            MENU = nuevo_menu
-            print("✅ MENÚ CARGADO DESDE PDF:")
-            print(json.dumps(MENU, indent=2, ensure_ascii=False))
-        else:
-            print("⚠️ Menú vacío. Usando valores por defecto.")
-    except Exception:
-        print("❌ Error cargando el menú desde PDF. Usando menú por defecto.")
-        traceback.print_exc()
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
-cargar_menu_desde_pdf("Catalogo_Flora_F.pdf")
-
-# =================== IA ======================
-
-def responder_ia_con_estado(nombre, historial, menu, estado_actual):
-    prompt = f"""
-Eres FloraBot, un asistente de ventas de flores. Estás atendiendo a un cliente llamado {nombre}.
-Debes mantener una conversación natural, cálida y guiada para ayudarle a hacer un pedido paso a paso.
-
-No repitas saludos si ya has hablado con el cliente.
-
-Tu objetivo es recolectar estos 4 datos:
-1. producto (nombre de flor en el menú)
-2. cantidad
-3. modalidad (recoger o domicilio)
-4. dirección (solo si es domicilio)
-
-Responde con preguntas amigables, y si el cliente ya te dio un dato, no lo repitas.
-
-Ejemplo de respuesta final:
-
-🧾 *Pedido confirmado*:
-- Producto: girasoles
-- Cantidad: 2
-- Modalidad: Domicilio
-- Dirección: Calle 118 #43-46
-- Total: $50,000
-
-Devuelve un JSON con esta estructura:
-{{
-"producto": "...",
-"cantidad": "...",
-"modalidad": "...",
-"direccion": "...",
-"respuesta": "texto conversacional para mostrar al cliente"
-}}
-
-Estado actual del pedido:
-{json.dumps(estado_actual, ensure_ascii=False)}
-
-Historial del cliente:
-{json.dumps(historial[-6:], ensure_ascii=False)}
-
-Menú disponible:
-{json.dumps(menu, ensure_ascii=False)}
-"""
-
-    try:
-        headers = {
-            "Authorization": f"Bearer {os.getenv('OPENAI_API_KEY')}",
-            "Content-Type": "application/json",
-            "HTTP-Referer": "https://ustariz-pizza-bot.onrender.com",
-            "X-Title": "Bot Flora IA"
-        }
-
-        data = {
-            "model": "google/gemma-3-4b-it:free",
-            "messages": [{"role": "user", "content": prompt}]
-        }
-
-        response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data)
-        if response.status_code != 200:
-            print(f"❌ Error {response.status_code}: {response.text}")
-            return "No fue posible procesar tu mensaje. Intenta más tarde."
-
-        content = response.json()["choices"][0]["message"]["content"]
-
-        json_start = content.find('{')
-        json_end = content.rfind('}') + 1
-        pedido_json = {}
-        if json_start != -1 and json_end != -1:
-            try:
-                pedido_json = json.loads(content[json_start:json_end])
-            except:
-                pass
-
-        for campo in ["producto", "cantidad", "modalidad", "direccion"]:
-            if campo in pedido_json and pedido_json[campo]:
-                estado_actual[campo] = pedido_json[campo]
-
-        return pedido_json.get("respuesta", content)
-
-    except Exception:
-        print("=========== ERROR GPT ===========")
-        traceback.print_exc()
-        return "Ups, hubo un problema técnico. Estamos trabajando para solucionarlo. 🙏"
-
-# =================== BOT ======================
+# =================== STATE ======================
 users = {}
 
+# =================== FUNCIONES ======================
+def calcular_total(sabor, tamano, cantidad):
+    return MENU[sabor][tamano] * int(cantidad)
+
+def guardar_pedido(nombre, pedido):
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    row = [now, nombre, pedido['sabor'], pedido['tamano'], pedido['cantidad'],
+           pedido['modalidad'], pedido.get('direccion', '-'), pedido['total']]
+    sheet.append_row(row)
+
+def responder_ia_con_estado(nombre, historial, menu):
+    prompt = f"""
+Eres BotUsta, el asistente virtual de Ustariz Pizza. Estás hablando con {nombre}.
+Tu tarea es conversar de forma fluida y detectar automáticamente si el cliente ya indicó el sabor, tamaño, cantidad, modalidad (recoger o a domicilio) y dirección. A medida que recopilas estos datos, debes confirmar y preguntar lo siguiente que falta.
+
+Ejemplo:
+Cliente: "Hola, quiero una de pepperoni grande"
+Respuesta: "¡Claro que sí! 🍕 Una Pepperoni Large. ¿Cuántas deseas?"
+
+Si el pedido está completo, genera un resumen como este:
+🧾 Pedido confirmado:
+- 2 Pizza Pepperoni (Large)
+- Modalidad: A domicilio
+- Dirección: Carrera 52 #80-20
+- Total: $60,000
+
+Devuelve un JSON con los campos recolectados y la respuesta conversacional.
+
+Historial de mensajes:
+{json.dumps(historial[-5:])}
+Menú disponible:
+{json.dumps(menu)}
+"""
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7
+        )
+        content = response.choices[0].message['content']
+        json_start = content.find('{')
+        json_end = content.rfind('}') + 1
+        pedido_json = json.loads(content[json_start:json_end])
+        return content, pedido_json
+    except Exception as e:
+        print(f"Error IA: {e}")
+        return "Ups, tuve un problema procesando tu pedido. ¿Podrías repetirlo?", {}
+
+# =================== BOT ======================
 @app.route("/whatsapp", methods=['POST'])
 def whatsapp():
-    msg = request.form.get('Body')
+    msg = request.form.get('Body').lower()
     user = request.form.get('From')
     nombre = request.form.get('ProfileName')
+
+    if user not in users:
+        users[user] = {"historial": []}
+
+    users[user]["historial"].append(msg)
 
     resp = MessagingResponse()
     message = resp.message()
 
-    if not msg or not user:
-        message.body("No pude leer tu mensaje. ¿Puedes intentarlo de nuevo?")
-        return str(resp)
-
-    if user not in users:
-        users[user] = {
-            "historial": [],
-            "estado_pedido": {
-                "producto": None,
-                "cantidad": None,
-                "modalidad": None,
-                "direccion": None
-            },
-            "saludo_enviado": False
-        }
-
-    # Agrega el historial
-    users[user]["historial"].append(msg.lower())
-
-    # Enviar saludo solo una vez
-    if not users[user]["saludo_enviado"]:
-        bienvenida = f"¡Hola {nombre}! Bienvenido a FloraBot, tu asistente floral. 🌸 ¿Qué tipo de flores te gustaría hoy? Tenemos ramos de rosas, girasoles y tulipanes."
-        users[user]["saludo_enviado"] = True
-        message.body(bienvenida)
-        return str(resp)
-
-    if not MENU:
-        message.body("No hay productos disponibles. Intenta más tarde.")
-        return str(resp)
-
-    respuesta = responder_ia_con_estado(nombre, users[user]["historial"], MENU, users[user]["estado_pedido"])
+    respuesta, pedido = responder_ia_con_estado(nombre, users[user]["historial"], MENU)
     message.body(respuesta)
-    return str(resp)
 
-@app.route("/", methods=['GET'])
-def home():
-    return "Bot Flora IA activo ✅"
+    if all(k in pedido for k in ["sabor", "tamano", "cantidad", "modalidad", "direccion"]):
+        pedido["total"] = calcular_total(pedido["sabor"], pedido["tamano"], pedido["cantidad"])
+        guardar_pedido(nombre, pedido)
+        users[user] = {"historial": []}
+
+    return str(resp)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
