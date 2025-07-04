@@ -54,12 +54,6 @@ Debes mantener una conversación natural, cálida y guiada para ayudarle a hacer
 
 No repitas saludos si ya has hablado con el cliente.
 
-Tu objetivo es recolectar estos 4 datos:
-1. producto (nombre de flor en el menú)
-2. cantidad
-3. modalidad (recoger o domicilio)
-4. dirección (solo si es domicilio)
-
 Responde con preguntas amigables, y si el cliente ya te dio un dato, no lo repitas.
 
 Ejemplo de respuesta final:
@@ -110,14 +104,23 @@ Menú disponible:
 
         content = response.json()["choices"][0]["message"]["content"]
 
+        # Extraer solo el JSON sin imprimirlo al cliente
         json_start = content.find('{')
         json_end = content.rfind('}') + 1
+
         pedido_json = {}
         if json_start != -1 and json_end != -1:
             try:
                 pedido_json = json.loads(content[json_start:json_end])
+                content = pedido_json.get("respuesta", "Gracias por tu mensaje 🌸")
             except:
-                pass
+                content = "Gracias por tu mensaje 🌸"
+
+        # Actualizar estado del pedido
+        for campo in ["producto", "cantidad", "modalidad", "direccion"]:
+            if campo in pedido_json and pedido_json[campo]:
+                estado_actual[campo] = pedido_json[campo]
+
 
         for campo in ["producto", "cantidad", "modalidad", "direccion"]:
             if campo in pedido_json and pedido_json[campo]:
@@ -171,6 +174,11 @@ def whatsapp():
     if not MENU:
         message.body("No hay productos disponibles. Intenta más tarde.")
         return str(resp)
+    # Si el usuario pregunta por fotos o catálogo, enviar enlace
+    if any(palabra in msg.lower() for palabra in ["foto", "fotos", "catálogo", "catalogo", "ver productos"]):
+        message.body("Claro 🌸 Aquí puedes ver nuestro catálogo completo de flores y arreglos:\nhttps://bit.ly/VerCatálogoFlora")
+        return str(resp)
+
 
     respuesta = responder_ia_con_estado(nombre, users[user]["historial"], MENU, users[user]["estado_pedido"])
     message.body(respuesta)
