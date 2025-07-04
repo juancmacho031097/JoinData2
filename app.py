@@ -65,7 +65,7 @@ Menú disponible:
 """
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
+            model="google/gemma-3-4b-it:free",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7
         )
