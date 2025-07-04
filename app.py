@@ -35,7 +35,7 @@ def cargar_menu_desde_pdf(ruta_pdf):
 
         if nuevo_menu:
             MENU = nuevo_menu
-            print("\u2705 MENÚ CARGADO DESDE PDF:")
+            print("✅ MENÚ CARGADO DESDE PDF:")
             print(json.dumps(MENU, indent=2, ensure_ascii=False))
         else:
             print("⚠️ Menú vacío. Usando valores por defecto.")
@@ -51,6 +51,8 @@ def responder_ia_con_estado(nombre, historial, menu, estado_actual):
     prompt = f"""
 Eres FloraBot, un asistente de ventas de flores. Estás atendiendo a un cliente llamado {nombre}.
 Debes mantener una conversación natural, cálida y guiada para ayudarle a hacer un pedido paso a paso.
+
+No repitas saludos si ya has hablado con el cliente.
 
 Tu objetivo es recolectar estos 4 datos:
 1. producto (nombre de flor en el menú)
@@ -117,7 +119,6 @@ Menú disponible:
             except:
                 pass
 
-        # Actualiza el estado del usuario
         for campo in ["producto", "cantidad", "modalidad", "direccion"]:
             if campo in pedido_json and pedido_json[campo]:
                 estado_actual[campo] = pedido_json[campo]
@@ -153,17 +154,25 @@ def whatsapp():
                 "cantidad": None,
                 "modalidad": None,
                 "direccion": None
-            }
+            },
+            "saludo_enviado": False
         }
 
+    # Agrega el historial
     users[user]["historial"].append(msg.lower())
+
+    # Enviar saludo solo una vez
+    if not users[user]["saludo_enviado"]:
+        bienvenida = f"¡Hola {nombre}! Bienvenido a FloraBot, tu asistente floral. 🌸 ¿Qué tipo de flores te gustaría hoy? Tenemos ramos de rosas, girasoles y tulipanes."
+        users[user]["saludo_enviado"] = True
+        message.body(bienvenida)
+        return str(resp)
 
     if not MENU:
         message.body("No hay productos disponibles. Intenta más tarde.")
         return str(resp)
 
     respuesta = responder_ia_con_estado(nombre, users[user]["historial"], MENU, users[user]["estado_pedido"])
-
     message.body(respuesta)
     return str(resp)
 
