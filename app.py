@@ -184,15 +184,12 @@ def whatsapp():
 
     texto = msg.lower()
 
-    # Mostrar imagen específica si menciona tipo de flor y palabras clave relacionadas con imágenes
-    palabras_imagen = ["foto", "fotos", "imagen", "ver", "mostrar", "muestra", "ver foto", "ver imagen"]
-
-    for flor, url in IMAGENES_PRODUCTOS.items():
-        if any(flor in texto or flor.rstrip('s') in texto for flor in [flor]) and any(p in texto for p in palabras_imagen):
+    # Mostrar imagen específica si menciona tipo de flor + foto/imagen
+    for flor in IMAGENES_PRODUCTOS:
+        if flor in texto and any(palabra in texto for palabra in ["foto", "fotos", "imagen", "ver"]):
             message.body(f"Aquí tienes una muestra de nuestros {flor} 🌼")
-            message.media(url)
-            return str(resp)
-
+            message.media(IMAGENES_PRODUCTOS[flor])
+            return str(resp)  # 🔴 Esto evita que pase a la IA
 
     # Mostrar catálogo general si menciona "catálogo", "ver productos", etc.
     if any(palabra in texto for palabra in ["catálogo", "catalogo", "ver productos", "ver catálogo"]):
