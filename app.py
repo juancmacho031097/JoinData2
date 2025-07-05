@@ -189,12 +189,13 @@ def whatsapp():
         if flor in texto and any(palabra in texto for palabra in ["foto", "fotos", "imagen", "ver"]):
             message.body(f"Aquí tienes una muestra de nuestros {flor} 🌼")
             message.media(IMAGENES_PRODUCTOS[flor])
-            return str(resp)
+            return str(resp)  # 🔴 Esto evita que pase a la IA
 
     # Mostrar catálogo general si menciona "catálogo", "ver productos", etc.
     if any(palabra in texto for palabra in ["catálogo", "catalogo", "ver productos", "ver catálogo"]):
         message.body(f"Claro 🌸 Aquí puedes ver nuestro catálogo completo de flores y arreglos:\n{URL_CATALOGO}")
-        return str(resp)
+        return str(resp)  # 🔴 Esto también evita que siga a la IA
+
 
     # Respuesta IA
     respuesta = responder_ia_con_estado(nombre, users[user]["historial"], MENU, users[user]["estado_pedido"])
