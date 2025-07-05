@@ -167,7 +167,7 @@ def whatsapp():
     # Enviar saludo solo una vez
     if not users[user]["saludo_enviado"]:
         bienvenida = f"¡Hola {nombre}! Bienvenida mi nombre es Flor, tu asistente de flora. 🌸 ¿Qué tipo de flores te gustaría hoy? Tenemos ramos de rosas, girasoles y tulipanes."
-        users[user]["saludo_enviado"] = False
+        users[user]["saludo_enviado"] = True
         message.body(bienvenida)
         return str(resp)
 
