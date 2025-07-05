@@ -166,8 +166,8 @@ def whatsapp():
 
     # Enviar saludo solo una vez
     if not users[user]["saludo_enviado"]:
-        bienvenida = f"¡Hola {nombre}! Bienvenido a FloraBot, tu asistente floral. 🌸 ¿Qué tipo de flores te gustaría hoy? Tenemos ramos de rosas, girasoles y tulipanes."
-        users[user]["saludo_enviado"] = True
+        bienvenida = f"¡Hola {nombre}! Bienvenida mi nombre es Flor, tu asistente de flora. 🌸 ¿Qué tipo de flores te gustaría hoy? Tenemos ramos de rosas, girasoles y tulipanes."
+        users[user]["saludo_enviado"] = False
         message.body(bienvenida)
         return str(resp)
 
@@ -176,7 +176,7 @@ def whatsapp():
         return str(resp)
     # Si el usuario pregunta por fotos o catálogo, enviar enlace
     if any(palabra in msg.lower() for palabra in ["foto", "fotos", "catálogo", "catalogo", "ver productos"]):
-        message.body("Claro 🌸 Aquí puedes ver nuestro catálogo completo de flores y arreglos:\nhttps://bit.ly/VerCatálogoFlora")
+        message.body("Claro 🌸 Aquí puedes ver nuestro catálogo completo de flores y arreglos con su respectivas fotos:\nhttps://bit.ly/VerCatálogoFlora")
         return str(resp)
 
 
