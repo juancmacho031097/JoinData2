@@ -8,6 +8,17 @@ import requests
 
 app = Flask(__name__)
 
+#===================fotos de flores=============
+
+IMAGENES_PRODUCTOS = {
+    "rosas": "https://i.imgur.com/KsfHUfJ.jpeg",
+    "girasoles": "https://i.imgur.com/wUile3P.png",
+    "tulipanes": "https://i.imgur.com/4wOaKn9.jpeg"
+}
+
+URL_CATALOGO = "https://bit.ly/VerCatalogoFlora"
+
+
 # =================== CONFIG ======================
 
 MENU = {
@@ -178,6 +189,20 @@ def whatsapp():
     if any(palabra in msg.lower() for palabra in ["foto", "fotos", "catálogo", "catalogo", "ver productos"]):
         message.body("Claro 🌸 Aquí puedes ver nuestro catálogo completo de flores y arreglos con su respectivas fotos:\nhttps://bit.ly/VerCatálogoFlora")
         return str(resp)
+
+
+    # Detecta si el usuario quiere ver fotos o catálogo
+    if any(p in msg.lower() for p in ["foto", "fotos", "imagen", "catálogo", "catalogo", "ver productos"]):
+        message.body("Aquí puedes ver nuestros arreglos florales 🌸")
+        message.media(URL_CATALOGO)
+        return str(resp)
+
+    # Detecta si mencionó alguna flor del menú y responde con su imagen
+    for flor in IMAGENES_PRODUCTOS:
+        if flor in msg.lower():
+            message.body(f"Aquí tienes una muestra de nuestros {flor} 🌼")
+            message.media(IMAGENES_PRODUCTOS[flor])
+            break  # Para que no envíe múltiples si hay más de una palabra
 
 
     respuesta = responder_ia_con_estado(nombre, users[user]["historial"], MENU, users[user]["estado_pedido"])
