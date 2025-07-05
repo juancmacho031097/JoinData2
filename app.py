@@ -172,42 +172,35 @@ def whatsapp():
             "saludo_enviado": False
         }
 
-    # Agrega el historial
+    # Guardar historial
     users[user]["historial"].append(msg.lower())
 
-    # Enviar saludo solo una vez
+    # Saludo inicial
     if not users[user]["saludo_enviado"]:
-        bienvenida = f"¡Hola {nombre}! Bienvenida mi nombre es Flor, tu asistente de flora. 🌸 ¿Qué tipo de flores te gustaría hoy? Tenemos ramos de rosas, girasoles y tulipanes."
+        bienvenida = f"¡Hola {nombre}! Bienvenida, mi nombre es Flor 🌸 tu asistente floral. ¿Qué tipo de flores te gustaría hoy? Tenemos ramos de rosas, girasoles y tulipanes."
         users[user]["saludo_enviado"] = True
         message.body(bienvenida)
         return str(resp)
 
-    if not MENU:
-        message.body("No hay productos disponibles. Intenta más tarde.")
-        return str(resp)
-    # Si el usuario pregunta por fotos o catálogo, enviar enlace
-    if any(palabra in msg.lower() for palabra in ["foto", "fotos", "catálogo", "catalogo", "ver productos"]):
-        message.body("Claro 🌸 Aquí puedes ver nuestro catálogo completo de flores y arreglos con su respectivas fotos:\nhttps://bit.ly/VerCatálogoFlora")
-        return str(resp)
+    texto = msg.lower()
 
-
-    # Detecta si el usuario quiere ver fotos o catálogo
-    if any(p in msg.lower() for p in ["foto", "fotos", "imagen", "catálogo", "catalogo", "ver productos"]):
-        message.body("Aquí puedes ver nuestros arreglos florales 🌸")
-        message.media(URL_CATALOGO)
-        return str(resp)
-
-    # Detecta si mencionó alguna flor del menú y responde con su imagen
+    # Mostrar imagen específica si menciona tipo de flor + foto/imagen
     for flor in IMAGENES_PRODUCTOS:
-        if flor in msg.lower():
+        if flor in texto and any(palabra in texto for palabra in ["foto", "fotos", "imagen", "ver"]):
             message.body(f"Aquí tienes una muestra de nuestros {flor} 🌼")
             message.media(IMAGENES_PRODUCTOS[flor])
-            break  # Para que no envíe múltiples si hay más de una palabra
+            return str(resp)
 
+    # Mostrar catálogo general si menciona "catálogo", "ver productos", etc.
+    if any(palabra in texto for palabra in ["catálogo", "catalogo", "ver productos", "ver catálogo"]):
+        message.body(f"Claro 🌸 Aquí puedes ver nuestro catálogo completo de flores y arreglos:\n{URL_CATALOGO}")
+        return str(resp)
 
+    # Respuesta IA
     respuesta = responder_ia_con_estado(nombre, users[user]["historial"], MENU, users[user]["estado_pedido"])
     message.body(respuesta)
     return str(resp)
+
 
 @app.route("/", methods=['GET'])
 def home():
