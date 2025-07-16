@@ -11,7 +11,7 @@ app = Flask(__name__)
 #===================fotos de flores=============
 
 IMAGENES_PRODUCTOS = {
-    "rosas": "https://i.imgur.com/KsfHUfJ.jpeg",
+    "rosas": "https://drive.google.com/file/d/1WhbRvH9J1BJEMzAbHsGeNwekAFguSaFk/view?usp=sharing",
     "girasoles": "https://i.imgur.com/wUile3P.png",
     "tulipanes": "https://i.imgur.com/4wOaKn9.jpeg"
 }
@@ -193,7 +193,7 @@ def whatsapp():
 
     # Mostrar catálogo general si menciona "catálogo", "ver productos", etc.
     if any(palabra in texto for palabra in ["catálogo", "catalogo", "ver productos", "ver catálogo"]):
-        message.body(f"Claro 🌸 Aquí puedes ver nuestro catálogo completo de flores y arreglos:\n{URL_CATALOGO}")
+        message.body(f"Claro 🌸 Aquí puedes ver nuestro catálogo completo de flore y arreglos:\n{URL_CATALOGO}")
         return str(resp)  # 🔴 Esto también evita que siga a la IA
 
 
