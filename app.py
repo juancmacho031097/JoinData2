@@ -11,7 +11,7 @@ app = Flask(__name__)
 #===================fotos de flores=============
 
 IMAGENES_PRODUCTOS = {
-    "rosas": "https://drive.google.com/file/d/1WhbRvH9J1BJEMzAbHsGeNwekAFguSaFk/view?usp=sharing",
+    "rosas": "https://ustariz-pizza-bot.onrender.com/static/rosas.png",
     "girasoles": "https://i.imgur.com/wUile3P.png",
     "tulipanes": "https://i.imgur.com/4wOaKn9.jpeg"
 }
